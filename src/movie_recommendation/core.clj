@@ -30,5 +30,14 @@
         )))))
 (fix-V-solve-U testR testV)
 
+(defn dot-product [v1 v2]
+  (reduce + (map * v1 v2)))
+
+(defn matrix-multiply [m1 m2]
+  "Multiplying two matrices, where m2 is already transposed"
+  (mapv (fn [row]
+          (mapv (fn [col] (dot-product row col)) m2))
+        m1))
+(matrix-multiply testR (transpose testV))
 
 
