@@ -15,6 +15,9 @@
             [0 1]
             [1 1]])
 
+(defn transpose [matrix]
+  (apply mapv vector matrix))
+
 (defn fix-V-solve-U [R V] 
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
@@ -23,8 +26,9 @@
       (do
         (println "Row:" row, "Indexes:" indexes "Values:" values)
         (let [temp-V (mapv #(nth V % 0) indexes)]
-          (println "Temp V:" temp-V)
+          (println "Temp V:" temp-V, "Transposed V:" (transpose temp-V))
         )))))
 (fix-V-solve-U testR testV)
+
 
 
