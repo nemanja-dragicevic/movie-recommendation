@@ -42,17 +42,23 @@
 
 (reduce + 0 [1 2 3 4]) 
 
+(defn matrix-add [m1 m2]
+  (if (and (= (count m1) (count m2))
+            (every? (fn [[row1 row2]] (= (count row1) (count row2))) (map vector m1 m2)))
+    (mapv (fn [row1 row2]
+            (mapv + row1 row2))
+          m1 m2)
+    (throw (IllegalArgumentException. "Matrices cannot be added"))))
+
 (defn fix-V-solve-U [R V] 
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
           indexes (mapv first pairs)
           values (mapv second pairs)]
-      (do
-        (let [temp-V (mapv #(nth V % 0) indexes)
-              result (matrix-multiply (transpose temp-V) (transpose temp-V))
-              id-mat (identity-matrix (count temp-V) lambda)]
-            (println "Result: " result, "ID-Matrix:" id-mat))))))
-        
+      (let [temp-V (mapv #(nth V % 0) indexes)
+            result (matrix-multiply (transpose temp-V) (transpose temp-V))
+            id-mat (identity-matrix (count temp-V) lambda)]
+        (println "Result: " result, "ID-Matrix:" id-mat (matrix-add result id-mat))))))
 (fix-V-solve-U testR testV)
 
 (mapv (fn [x] x) (range 10)) 
