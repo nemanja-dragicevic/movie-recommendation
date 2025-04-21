@@ -36,7 +36,7 @@
 
 (defn identity-matrix [n lambda]
   (mapv (fn [i]
-          (mapv (fn [j] (if (= i j) (+ 1 lambda) 0)) (range n)))
+          (mapv (fn [j] (if (= i j) (* 1 lambda) 0)) (range n)))
         (range n)))
 (identity-matrix 3 lambda)
 
