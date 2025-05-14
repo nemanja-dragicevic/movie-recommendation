@@ -22,7 +22,7 @@
 (defn dot-product [v1 v2]
   (reduce + (map * v1 v2)))
 
-(defn matrix-multiply
+(defn multiply-matrices
   "Multiplying two matrices, where m2 is already transposed"
   [m1 m2]
   (let [cols-m1 (count (first m1))
@@ -32,7 +32,7 @@
               (mapv (fn [col] (dot-product row col)) m2))
             m1)
       (throw (IllegalArgumentException. (str "Matrices cannot be multiplied" rows-m2 cols-m1))))))
-(matrix-multiply testR (transpose testV))
+(multiply-matrices testR (transpose testV))
 
 (defn identity-matrix [n lambda]
   (mapv (fn [i]
@@ -50,18 +50,40 @@
           m1 m2)
     (throw (IllegalArgumentException. "Matrices cannot be added"))))
 
+(defn scale-matrix [matrix scalar]
+  (mapv (fn [row]
+          (mapv #(* % scalar) row))
+        matrix))
+
+(defn invert-2x2 [matrix] 
+  (let [[[a b] [c d]] matrix
+        det (float (/ 1 (- (* a d) (* b c))))]
+    (scale-matrix [[d (- b)] [(- c) a]] det)))
+(invert-2x2 [[1 2] [3 4]])
+
 (defn fix-V-solve-U [R V] 
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
           indexes (mapv first pairs)
-          values (mapv second pairs)]
-      (let [temp-V (mapv #(nth V % 0) indexes)
-            result (matrix-multiply (transpose temp-V) (transpose temp-V))
-            id-mat (identity-matrix (count temp-V) lambda)]
-        (println "Result: " result, "ID-Matrix:" id-mat (matrix-add result id-mat))))))
+          values (vector (mapv second pairs))
+          temp-V (mapv #(nth V % 0) indexes)
+          result (multiply-matrices (transpose temp-V) (transpose temp-V))
+          id-mat (identity-matrix (count temp-V) lambda)]
+      (do 
+        (println "Pairs:" pairs)
+      (println "Indexes:" indexes)
+        (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values)))))))
 (fix-V-solve-U testR testV)
 
-(mapv (fn [x] x) (range 10)) 
+(multiply-matrices [[1 1] [0 1]] [[5 3]])
+
+(mapv #(* -1 %) [1 2 3])
+
+(map #(* -1 %) [[1 2] [3 4]])
+
+
+
+
 
 
 
