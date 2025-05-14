@@ -69,17 +69,10 @@
           temp-V (mapv #(nth V % 0) indexes)
           result (multiply-matrices (transpose temp-V) (transpose temp-V))
           id-mat (identity-matrix (count temp-V) lambda)]
-      (do 
-        (println "Pairs:" pairs)
-      (println "Indexes:" indexes)
-        (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values)))))))
-(fix-V-solve-U testR testV)
+      (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values))))))
+(vec (fix-V-solve-U testR testV))
 
 (multiply-matrices [[1 1] [0 1]] [[5 3]])
-
-(mapv #(* -1 %) [1 2 3])
-
-(map #(* -1 %) [[1 2] [3 4]])
 
 
 
