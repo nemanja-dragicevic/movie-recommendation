@@ -78,6 +78,16 @@
 
 (def new-U (merge-into-matrix (fix-V-solve-U testR testV)))
 
+(defn fix-U-solve-V [R U]
+  (for [col (transpose R)]
+    (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) col)
+          indexes (mapv first pairs)
+          values (vector (mapv second pairs))
+          temp-U (mapv #(nth U % 0) indexes)
+          result (multiply-matrices (transpose temp-U) (transpose temp-U))
+          id-mat (identity-matrix (count result) lambda)]
+      (multiply-matrices (invert-2x2 (matrix-add result (transpose id-mat))) (transpose (multiply-matrices (transpose temp-U) values))))))
+(merge-into-matrix (fix-U-solve-V testR new-U))
 
 
 
