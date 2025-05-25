@@ -61,6 +61,10 @@
     (scale-matrix [[d (- b)] [(- c) a]] det)))
 (invert-2x2 [[1 2] [3 4]])
 
+(defn merge-into-matrix [v]
+  (vec (for [row v]
+         (vec (mapcat identity row)))))
+
 (defn fix-V-solve-U [R V] 
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
@@ -68,16 +72,11 @@
           values (vector (mapv second pairs))
           temp-V (mapv #(nth V % 0) indexes)
           result (multiply-matrices (transpose temp-V) (transpose temp-V))
-          id-mat (identity-matrix (count temp-V) lambda)]
-      (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values))))))
-(vec (fix-V-solve-U testR testV))
+          id-mat (identity-matrix (count result) lambda)]
+             (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values))))))
+;; (merge-into-matrix (fix-V-solve-U testR testV))
 
-(multiply-matrices [[1 1] [0 1]] [[5 3]])
-
-
-
-
-
+(def new-U (merge-into-matrix (fix-V-solve-U testR testV)))
 
 
 
