@@ -89,5 +89,21 @@
       (multiply-matrices (invert-2x2 (matrix-add result (transpose id-mat))) (transpose (multiply-matrices (transpose temp-U) values))))))
 (merge-into-matrix (fix-U-solve-V testR new-U))
 
+(def new-V (merge-into-matrix (fix-U-solve-V testR new-U)))
+
+(def max-iterations 1000)
+
+
+(defn rmse [R U V]
+  (let [predicted (multiply-matrices U V)
+        errors (for [i (range (count R))
+                     j (range (count (first R)))
+                     :when (> (nth (nth R i) j) 0)]
+                 (do
+                   (println "R: " (nth (nth R i) j) ", Predicted: " (nth (nth predicted i) j))
+                   (println "Error: " (- (nth (nth R i) j) (nth (nth predicted i) j)))
+                 (- (nth (nth R i) j) (nth (nth predicted i) j))))]
+    (Math/sqrt (/ (reduce + 0 (map #(* % %) errors)) (count errors)))))
+(rmse testR new-U new-V)
 
 
