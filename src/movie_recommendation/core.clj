@@ -110,21 +110,23 @@
 
 
 
-(defn avg-rating [ratings]
+(defn user-inter [ratings]
   (->> ratings
        (group-by :user-id)
-       (map (fn [[user-id user-ratings]]
-              [user-id (double (/ (reduce + (map :rating user-ratings))
-                          (count user-ratings)))]))
+       (map (fn [[user-id ur]]
+              (let [num-ratings (count ur)
+                    avg (double (/ (reduce + 0 (map :rating ur)) num-ratings))]
+                [user-id {:n num-ratings
+                          :avg-rating avg}])))
        (into {})))
-(avg-rating @dataset/ratings)
+(user-inter @dataset/ratings)
 
-(defn rm-question-users [user-avg-ratings from to]
+(defn rm-question-users [user-avg-ratings min-n from to]
   (->> user-avg-ratings
-       (filter (fn [[_ avg-rating]] (and (>= avg-rating from) (<= avg-rating to))))
+       (filter (fn [[_ {:keys [n avg-rating]}]] (and (>= n min-n) (>= avg-rating from) (<= avg-rating to))))
        (map first)))
 
-(rm-question-users (avg-rating @dataset/ratings) 2.5 4.8)
+(rm-question-users (user-inter @dataset/ratings) 3 2.5 4.8)
 
 
 
