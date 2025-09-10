@@ -119,6 +119,12 @@
        (into {})))
 (avg-rating @dataset/ratings)
 
+(defn rm-question-users [user-avg-ratings from to]
+  (->> user-avg-ratings
+       (filter (fn [[_ avg-rating]] (and (>= avg-rating from) (<= avg-rating to))))
+       (map first)))
+
+(rm-question-users (avg-rating @dataset/ratings) 2.5 4.8)
 
 
 
