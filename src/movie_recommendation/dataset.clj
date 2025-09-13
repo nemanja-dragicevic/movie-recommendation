@@ -33,16 +33,32 @@
                     :title "Smile"}]))
 
 (def users (atom
-            {"Cone" {:id 1
+            {"main-user" {:id 1
                      :first_name "Nemanja"
                      :last_name "Dragicevic"
-                     :username "Cone"
-                     :password "Vozd"}
-             "John" {:id 2
-                     :first_name "John"
-                     :last_name "Doe"
-                     :username "John"
-                     :password "Doe"}}))
+                     :username "main-user"
+                     :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
+             "Ana" {:id 2
+                    :first_name "Ana"
+                    :last_name "Marentis"
+                    :username "Ana"
+                    :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
+             "Betty" {:id 2
+                    :first_name "Betty"
+                    :last_name "Thorne"
+                    :username "Betty"
+                    :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
+             "Carlos" {:id 2
+                    :first_name "Carlos"
+                    :last_name "Virella"
+                    :username "Carlos"
+                    :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
+             "Dana" {:id 2
+                       :first_name "Dana"
+                       :last_name "Kessler"
+                       :username "Dana"
+                       :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
+             }))
 
 ;; TODO: When user doesn't have enough ratings, recommend the most popular movies
 ;; TODO: Connect Python with Clojure
