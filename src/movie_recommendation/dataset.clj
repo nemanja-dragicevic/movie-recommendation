@@ -43,22 +43,32 @@
                     :last_name "Marentis"
                     :username "Ana"
                     :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
-             "Betty" {:id 2
+             "Betty" {:id 3
                     :first_name "Betty"
                     :last_name "Thorne"
                     :username "Betty"
                     :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
-             "Carlos" {:id 2
+             "Carlos" {:id 4
                     :first_name "Carlos"
                     :last_name "Virella"
                     :username "Carlos"
                     :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
-             "Dana" {:id 2
+             "Dana" {:id 5
                        :first_name "Dana"
                        :last_name "Kessler"
                        :username "Dana"
                        :password "bcrypt+sha512$0b3ff79831dd5b27555d606e3bd58b31$12$0e9e537448a131bf67861a9c307938218254786070172f3b"}
              }))
+
+(def ratings (atom [{:user-id 1
+                     :movie-id 1
+                     :rating 4}
+                    {:user-id 1 
+                     :movie-id 2
+                     :rating 3}
+                    {:user-id 1
+                     :movie-id 4
+                     :rating 5}]))
 
 ;; TODO: When user doesn't have enough ratings, recommend the most popular movies
 ;; TODO: Connect Python with Clojure

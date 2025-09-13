@@ -11,6 +11,7 @@
                  [buddy/buddy-hashers "2.0.167"]
                  [ring/ring-json "0.5.1"]
                  [buddy/buddy-sign "3.5.351"]
+                 [buddy/buddy-auth "3.0.323"]
                  [yogthos/config "1.2.1"]]
   :jvm-opts ["-Dconfig=dev-config.edn"] 
   :main movie-recommendation.endpoints 

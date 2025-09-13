@@ -9,9 +9,31 @@
             [config.core :refer [env]]
             [cheshire.core :as json]
             [clojure.string :as string]
-            [movie-recommendation.dataset :refer [users]]))
+            [movie-recommendation.dataset :refer [users, ratings, movies]]))
 
 (def secret-key (:secret-key env))
+
+(defn unauthorized []
+  {:status 401
+   :headers {"Content-Type" "application/json"}
+   :body {:error "Unauthorized"}})
+
+(defn forbidden []
+  {:status 403 
+   :headers {"Content-Type" "application/json"}
+   :body {:error "Cannot access other users’ data"}})
+
+(defn jwt-auth [handler]
+  (fn [request]
+    (let [auth-header (get-in request [:headers "authorization"])]
+      (if (and auth-header (string/starts-with? auth-header "Bearer "))
+        (let [token (subs auth-header 7)]
+          (try
+            (let [claims (jwt/unsign token secret-key)]
+              (handler (assoc request :identity claims)))
+            (catch Exception _
+              (unauthorized))))
+        (unauthorized)))))
 
 (defn get-users []
   {:status  200
@@ -54,6 +76,7 @@
 
       :else
       (let [claims {:user username
+                    :id (:id user)
                     :expire (-> 1
                                 (* 24 60 60)
                                 (+ (quot (System/currentTimeMillis) 1000)))}
@@ -61,10 +84,32 @@
         {:status 200
          :body {:token token}}))))
 
-(defroutes app-routes
+(defn get-user-watched [id]
+  (let [rated-movies (->> @ratings
+                          (filter #(= (:user-id %) id))
+                          (map :movie-id)
+                          set)]
+    {:status 200
+     :body {:message (map :title (filter #(rated-movies (:id %)) @movies))}}))
+
+(defn restrict-to-user [id req fun]
+  (let [user-id (get-in req [:identity :id])]
+    (if (= id user-id)
+      (fun id)
+      (forbidden))))
+
+(defroutes public-routes
+  (POST "/register" req (register req))
+  (POST "/login" req (login req)))
+
+(defroutes protected-routes
   (GET "/users" [] (get-users))
-  (POST "/register" request-body (register request-body))
-  (POST "/login" request-body (login request-body))
+  (GET "/api/watched/:id" [id :as req] 
+    (restrict-to-user (Integer/parseInt id) req get-user-watched)))
+
+(defroutes app-routes
+  public-routes
+  (jwt-auth protected-routes)
   (route/not-found {:status 404
                     :body {:error "Page not found"}}))
 
