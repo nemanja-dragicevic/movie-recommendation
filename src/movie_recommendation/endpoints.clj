@@ -23,6 +23,11 @@
    :headers {"Content-Type" "application/json"}
    :body {:error "Cannot access other users’ data"}})
 
+(defn bad-request [msg]
+  {:status 404
+   :headers {"Content-Type" "application/json"}
+   :body msg})
+
 (defn jwt-auth [handler]
   (fn [request]
     (let [auth-header (get-in request [:headers "authorization"])]
@@ -90,12 +95,27 @@
                           (map :movie-id)
                           set)]
     {:status 200
-     :body {:message (map :title (filter #(rated-movies (:id %)) @movies))}}))
+     :body (map :title (filter #(rated-movies (:id %)) @movies))}))
+
+(defn add-rating [id req]
+  (let [{:keys [movie-id rating]} (:body req)]
+    (println id, movie-id, rating)
+    (if (some #(= (:id %) movie-id) @movies)
+      (do 
+        (swap! ratings conj {:user-id id
+                           :movie-id movie-id
+                           :rating rating})
+        {:status 200
+         :body "Successfully added rating"})
+      (bad-request (str "Movie with id ", movie-id, " doesn't exist")))))
 
 (defn restrict-to-user [id req fun]
   (let [user-id (get-in req [:identity :id])]
     (if (= id user-id)
-      (fun id)
+      (try 
+        (fun id req)
+        (catch clojure.lang.ArityException _
+          (fun id)))
       (forbidden))))
 
 (defroutes public-routes
@@ -105,7 +125,9 @@
 (defroutes protected-routes
   (GET "/users" [] (get-users))
   (GET "/api/watched/:id" [id :as req] 
-    (restrict-to-user (Integer/parseInt id) req get-user-watched)))
+    (restrict-to-user (Integer/parseInt id) req get-user-watched))
+  (POST "/api/rating/:id" [id :as req] 
+    (restrict-to-user (Integer/parseInt id) req add-rating)))
 
 (defroutes app-routes
   public-routes
