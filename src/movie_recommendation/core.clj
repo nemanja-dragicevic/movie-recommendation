@@ -1,4 +1,5 @@
-(ns movie-recommendation.core)
+(ns movie-recommendation.core
+  (:require [movie-recommendation.dataset :as dataset]))
 
 (defn initialize-feature-matrix [rows cols scale]
   (vec (for [_ (range rows)]
@@ -105,5 +106,29 @@
                  (- (nth (nth R i) j) (nth (nth predicted i) j))))]
     (Math/sqrt (/ (reduce + 0 (map #(* % %) errors)) (count errors)))))
 (rmse testR new-U new-V)
+
+
+
+
+(defn user-inter [ratings]
+  (->> ratings
+       (group-by :user-id)
+       (map (fn [[user-id ur]]
+              (let [num-ratings (count ur)
+                    avg (double (/ (reduce + 0 (map :rating ur)) num-ratings))]
+                [user-id {:n num-ratings
+                          :avg-rating avg}])))
+       (into {})))
+(user-inter @dataset/ratings)
+
+(defn rm-question-users [user-avg-ratings min-n from to]
+  (->> user-avg-ratings
+       (filter (fn [[_ {:keys [n avg-rating]}]] (and (>= n min-n) (>= avg-rating from) (<= avg-rating to))))
+       (map first)))
+
+(rm-question-users (user-inter @dataset/ratings) 3 2.5 4.8)
+
+
+
 
 
