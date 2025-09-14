@@ -1,10 +1,8 @@
 (ns movie-recommendation.core
-  (:require [movie-recommendation.dataset :as dataset]))
+  (:require [movie-recommendation.dataset :as dataset]
+            [clojure.core.matrix :as m]))
 
-(defn initialize-feature-matrix [rows cols scale]
-  (vec (for [_ (range rows)]
-         (vec (for [_ (range cols)]
-                (rand scale))))))
+(m/set-current-implementation :vectorz)
 
 (defn print-matrix [matrix]
   (doseq [row matrix]
@@ -20,64 +18,52 @@
 (defn transpose [matrix]
   (apply mapv vector matrix))
 
-(defn dot-product [v1 v2]
-  (reduce + (map * v1 v2)))
-
-(defn multiply-matrices
-  "Multiplying two matrices, where m2 is already transposed"
-  [m1 m2]
-  (let [cols-m1 (count (first m1))
-        rows-m2 (count (first m2))]
-    (if (= cols-m1 rows-m2)
-      (mapv (fn [row]
-              (mapv (fn [col] (dot-product row col)) m2))
-            m1)
-      (throw (IllegalArgumentException. (str "Matrices cannot be multiplied" rows-m2 cols-m1))))))
-(multiply-matrices testR (transpose testV))
+(defn multiply-matrices [m1 m2]
+  (try
+    (m/mmul m1 m2)
+    (catch Exception _
+      (str "Cannot multiply matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
+           "[", (count m2), " ", (count (first m2)), "]"))))
 
 (defn identity-matrix [n lambda]
   (mapv (fn [i]
           (mapv (fn [j] (if (= i j) (* 1 lambda) 0)) (range n)))
         (range n)))
-(identity-matrix 3 lambda)
 
-(reduce + 0 [1 2 3 4]) 
-
-(defn matrix-add [m1 m2]
-  (if (and (= (count m1) (count m2))
-            (every? (fn [[row1 row2]] (= (count row1) (count row2))) (map vector m1 m2)))
-    (mapv (fn [row1 row2]
-            (mapv + row1 row2))
-          m1 m2)
-    (throw (IllegalArgumentException. "Matrices cannot be added"))))
+(defn add-matrices [m1 m2]
+  (try
+    (m/add m1 m2)
+    (catch java.lang.Exception _
+      (str "Cannot add matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
+           "[", (count m2), " ", (count (first m2)), "]"))))
 
 (defn scale-matrix [matrix scalar]
   (mapv (fn [row]
           (mapv #(* % scalar) row))
         matrix))
 
-(defn invert-2x2 [matrix] 
-  (let [[[a b] [c d]] matrix
-        det (float (/ 1 (- (* a d) (* b c))))]
-    (scale-matrix [[d (- b)] [(- c) a]] det)))
-(invert-2x2 [[1 2] [3 4]])
-
 (defn merge-into-matrix [v]
   (vec (for [row v]
          (vec (mapcat identity row)))))
 
-(defn fix-V-solve-U [R V] 
+(defn fix-V-solve-U [R V]
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
           indexes (mapv first pairs)
           values (vector (mapv second pairs))
           temp-V (mapv #(nth V % 0) indexes)
-          result (multiply-matrices (transpose temp-V) (transpose temp-V))
-          id-mat (identity-matrix (count result) lambda)]
-             (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values))))))
-;; (merge-into-matrix (fix-V-solve-U testR testV))
-
-(def new-U (merge-into-matrix (fix-V-solve-U testR testV)))
+          result (multiply-matrices (transpose temp-V) temp-V)
+          id-mat (identity-matrix (count result) lambda)
+          A (add-matrices result id-mat)
+          B (multiply-matrices (transpose temp-V) (transpose values))]
+      ;; (println "Row: ", row)
+      ;; (println "Pairs: ", pairs, " Indexes: ", indexes, " Values: ", values)
+      ;; (println "Result: ", result)
+      ;; (println "A: ", A)
+      ;; (println "B: ", B)
+      ;; (println "Values: ", values, " temp-v: ", temp-V)
+      ;; (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values)))
+      (multiply-matrices (m/inverse A) B))))
 
 (defn fix-U-solve-V [R U]
   (for [col (transpose R)]
@@ -85,48 +71,41 @@
           indexes (mapv first pairs)
           values (vector (mapv second pairs))
           temp-U (mapv #(nth U % 0) indexes)
-          result (multiply-matrices (transpose temp-U) (transpose temp-U))
-          id-mat (identity-matrix (count result) lambda)]
-      (multiply-matrices (invert-2x2 (matrix-add result (transpose id-mat))) (transpose (multiply-matrices (transpose temp-U) values))))))
-(merge-into-matrix (fix-U-solve-V testR new-U))
+          result (multiply-matrices (transpose temp-U) temp-U)
+          id-mat (identity-matrix (count result) lambda)
+          A (add-matrices (multiply-matrices (transpose temp-U) temp-U) id-mat)
+          B (multiply-matrices (transpose temp-U) (transpose values))]
+      ;; (println "Col: ", col)
+      ;; (println "Pairs: ", pairs, " Indexes: ", indexes, " Values: ", values, " id mat: ", id-mat)
+      ;; (println A)
+      ;; (println B)
+      (multiply-matrices (m/inverse A) B))))
 
+(def new-U (merge-into-matrix (fix-V-solve-U testR testV)))
+new-U
 (def new-V (merge-into-matrix (fix-U-solve-V testR new-U)))
+new-V
+;; (merge-into-matrix (fix-V-solve-U testR testV))
 
-(def max-iterations 1000)
-
-
-(defn rmse [R U V]
-  (let [predicted (multiply-matrices U V)
-        errors (for [i (range (count R))
-                     j (range (count (first R)))
-                     :when (> (nth (nth R i) j) 0)]
-                 (do
-                   (println "R: " (nth (nth R i) j) ", Predicted: " (nth (nth predicted i) j))
-                   (println "Error: " (- (nth (nth R i) j) (nth (nth predicted i) j)))
-                 (- (nth (nth R i) j) (nth (nth predicted i) j))))]
-    (Math/sqrt (/ (reduce + 0 (map #(* % %) errors)) (count errors)))))
-(rmse testR new-U new-V)
+(multiply-matrices new-U (transpose new-V))
 
 
+(m/inverse [[0.6 -0.7] [-0.2 0.4]])
+
+(def A [[1 2 3]
+        [4 5 6]])
+
+(def B [[7 8]
+        [9 10]
+        [11 12]])
+
+(identity-matrix 3 lambda)
+(add-matrices B A)
+
+(multiply-matrices [[0.6 -0.7] [-0.2 0.4]] [[4.0 7.0] [2.0 6.0]])
 
 
-(defn user-inter [ratings]
-  (->> ratings
-       (group-by :user-id)
-       (map (fn [[user-id ur]]
-              (let [num-ratings (count ur)
-                    avg (double (/ (reduce + 0 (map :rating ur)) num-ratings))]
-                [user-id {:n num-ratings
-                          :avg-rating avg}])))
-       (into {})))
-(user-inter @dataset/ratings)
 
-(defn rm-question-users [user-avg-ratings min-n from to]
-  (->> user-avg-ratings
-       (filter (fn [[_ {:keys [n avg-rating]}]] (and (>= n min-n) (>= avg-rating from) (<= avg-rating to))))
-       (map first)))
-
-(rm-question-users (user-inter @dataset/ratings) 3 2.5 4.8)
 
 
 
