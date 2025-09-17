@@ -80,5 +80,18 @@
           B (multiply-matrices (transpose temp-U) (transpose values))]
       (multiply-matrices (m/inverse A) B))))
 
+(defn zero-matrix [r c]
+  (m/zero-matrix r c))
+(m/zero-matrix (count @dataset/users) (count @dataset/movies))
+
+(defn fill-matrix! [mat ratings]
+  (doseq [{:keys [user-id movie-id rating]} @ratings]
+    (m/mset! mat (dec user-id) (dec movie-id) rating))
+  mat)
+
+(def R (fill-matrix! (zero-matrix (count @dataset/users) (count @dataset/movies))
+                     dataset/ratings))
+R
+
 
 
