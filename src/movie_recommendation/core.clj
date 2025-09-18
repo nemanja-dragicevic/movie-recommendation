@@ -241,13 +241,14 @@ prep-data
 results
 
 
-(defn content-based-filtering []
+(defn content-based-filtering [n]
   (let [movies-json (json/generate-string @dataset/movies)
         users-json (json/generate-string (vals @dataset/users))
         ratings-json (json/generate-string @dataset/ratings)
-        result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json)]
+        top-n (str n)
+        result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json top-n)]
     (json/parse-string (:out result) true)))
-(def predictions (content-based-filtering))
+(def predictions (content-based-filtering 3))
 predictions
 
 (defn rem-not-pred-users [m idxs]

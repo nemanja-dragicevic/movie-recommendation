@@ -61,7 +61,7 @@ def recommend_movies(user_id, top_n=3):
 
 result = []
 for user in users:
-    recs = recommend_movies(user["id"], top_n=2)
+    recs = recommend_movies(user["id"], top_n=3)
     if len(recs) != 0:
         # print(f"Recommendations for {user['first_name']} {user['last_name']}:")
         # for title, score in recs:
