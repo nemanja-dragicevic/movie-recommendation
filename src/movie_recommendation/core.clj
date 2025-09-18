@@ -250,5 +250,14 @@ results
 (def predictions (content-based-filtering))
 predictions
 
+(defn rem-not-pred-users [m idxs]
+  (let [n (m/row-count m)
+        left-idx (remove (set idxs) (range n))]
+    (m/select m left-idx :all)))
+
+(def my-R (rem-not-pred-users C (:indexes prep-data)))
+(print-matrix (multiply-matrices (:U results) (transpose (:V results))))
+(def R-pred (multiply-matrices (:U results) (transpose (:V results))))
+
 
 
