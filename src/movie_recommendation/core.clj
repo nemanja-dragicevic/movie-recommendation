@@ -260,5 +260,11 @@ predictions
 (print-matrix (multiply-matrices (:U results) (transpose (:V results))))
 (def R-pred (multiply-matrices (:U results) (transpose (:V results))))
 
+(defn mask-ratings [R R-pred]
+  (let [mask (m/emap #(if (zero? %) 1 0) R)]
+    (m/mul R-pred mask)))
+(print-matrix (mask-ratings my-R R-pred))
+
+
 
 
