@@ -125,7 +125,7 @@ R
               avg (double (/ total (count ratings)))]
 
           (if (< avg min-avg)
-            (recur (inc r) train test indexes)
+            (recur (inc r) train test (conj indexes r))
 
             (let [not-chosen (drop k shuffled)
                   leftovers (into {} not-chosen)
@@ -142,7 +142,7 @@ R
               (recur (inc r)
                      (conj train train-row)
                      (conj test test-row)
-                     (into indexes (vec not-chosen))))))))))
+                     indexes))))))))
 
 (defn clean-zero-cols [tr te]
   (let [train-col (transpose tr)
@@ -186,7 +186,7 @@ R
 
 
 (def data (get-train-test C 2.5))
-(def prep-data (clean-zero-cols (:train data) (:test data)))
+(def prep-data (assoc (clean-zero-cols (:train data) (:test data)) :indexes (:indexes data)))
 
 data
 prep-data
@@ -237,5 +237,18 @@ prep-data
 (def factors (reverse (drop 1 (range (count @dataset/movies)))))
 (def results (als train-set test-set factors l))
 (apply min-key :rmse results)
+
+results
+
+
+(defn content-based-filtering []
+  (let [movies-json (json/generate-string @dataset/movies)
+        users-json (json/generate-string (vals @dataset/users))
+        ratings-json (json/generate-string @dataset/ratings)
+        result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json)]
+    (json/parse-string (:out result) true)))
+(def predictions (content-based-filtering))
+predictions
+
 
 
