@@ -265,6 +265,33 @@ predictions
     (m/mul R-pred mask)))
 (print-matrix (mask-ratings my-R R-pred))
 
+(defn top-rated-movies [n watched-ids]
+  (->> @dataset/ratings
+       (remove #(some #{(:movie-id %)} watched-ids))
+       (group-by :movie-id)
+       (map (fn [[movie-id rat]]
+              {:movie-id movie-id
+               :avg-rating (/ (reduce + (map :rating rat))
+                              (count rat))}))
+       (sort-by :avg-rating >)
+       (take n)
+       (mapv :movie-id)))
+
+(defn movie-recommendation [id]
+  (println "TODO")
+  )
+
+(defn get-recom-for-user [id min-ratings]
+  (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings)) 
+        n-ratings (count watched-ids)
+        u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
+        avg-rating (float (/ (reduce + u-ratings) (count u-ratings)))]
+    (if (or (< n-ratings min-ratings) (< avg-rating 2.6))
+      (top-rated-movies 3 watched-ids)
+      (movie-recommendation id))))
+(get-recom-for-user 4 3)
+
+
 
 
 
