@@ -40,7 +40,7 @@ def build_user_profile(user_id):
         user_vector /= total_weight
     return user_vector
 
-def recommend_movies(user_id, top_n=3):
+def recommend_movies(user_id):
     user_vector = build_user_profile(user_id)
     sims = util.cos_sim(user_vector, movie_embeddings)[0]
 
@@ -53,15 +53,13 @@ def recommend_movies(user_id, top_n=3):
     for idx in sims.argsort(descending=True):
         movie = movies[idx]
         if movie["id"] not in rated_movie_ids:
-            recommendations.append((movie["title"], sims[idx].item()))
-        if len(recommendations) >= top_n:
-            break
+            recommendations.append((movie["id"], sims[idx].item()))
 
     return recommendations
 
 result = []
 for user in users:
-    recs = recommend_movies(user["id"], top_n=3)
+    recs = recommend_movies(user["id"])
     if len(recs) != 0:
         # print(f"Recommendations for {user['first_name']} {user['last_name']}:")
         # for title, score in recs:

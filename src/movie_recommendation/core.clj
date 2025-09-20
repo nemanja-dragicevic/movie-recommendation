@@ -11,13 +11,6 @@
   (doseq [row matrix]
     (println row)))
 
-(def testR [[5 0 3]
-            [4 1 0]])
-(def testV [[1 0]
-            [0 1]
-            [1 1]])
-(def lambda 0.1)
-
 (defn transpose [matrix]
   (apply mapv vector matrix))
 
@@ -91,21 +84,10 @@
     (m/mset! mat (dec user-id) (dec movie-id) rating))
   mat)
 
-(def R (fill-matrix! (zero-matrix (count @dataset/users) (count @dataset/movies))
-                     dataset/ratings))
-R
 
-
-
-(def C [[5 4 0 3 0 2 1 0]
-        [4 0 5 0 3 0 2 4]
-        [1 0 1 0 0 2 0 3]
-        [3 4 2 5 0 0 4 0]
-        [0 2 0 0 5 4 0 3]])
-
-(defn get-train-test [mat min-avg]
-  (let [rows (count mat)
-        cols (count (first mat))]
+(defn get-train-test [mat min-avg min-ratings]
+  (let [rows (m/row-count mat)
+        cols (m/column-count mat)]
     (loop [r 0
            train []
            test []
@@ -114,19 +96,20 @@ R
         {:train (vec train)
          :test (vec test)
          :indexes indexes}
-        (let [row (nth mat r)
+        (let [row (m/get-row mat r)
               ratings (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
+              num-ratings (count ratings)
               shuffled (shuffle ratings)
 
-              ;; k (int (Math/ceil (* 0.8 (count ratings))))
-              k (dec (min (int (* 0.8 (count ratings))) (dec (count ratings))))
+              k (dec (min (int (* 0.8 (count ratings)))
+                          (dec (count ratings))))
 
               total (reduce + 0 (map second ratings))
               avg (double (/ total (count ratings)))]
 
-          (if (< avg min-avg)
+          (if (or (< num-ratings min-ratings)
+               (< avg min-avg))
             (recur (inc r) train test (conj indexes r))
-
             (let [not-chosen (drop k shuffled)
                   leftovers (into {} not-chosen)
 
@@ -138,7 +121,6 @@ R
                                       (get leftovers i)
                                       0))
                                   (range cols) row)]
-              ;; (println leftovers, ":", not-chosen, indexes)
               (recur (inc r)
                      (conj train train-row)
                      (conj test test-row)
@@ -157,7 +139,8 @@ R
                                   row)))
                           matrix))]
     {:train (drop-cols tr rem-cols)
-     :test (drop-cols te rem-cols)}))
+     :test (drop-cols te rem-cols)
+     :rem-cols rem-cols}))
 
 (defn get-rmse-mat [A B]
   (mapv (fn [row-a row-b]
@@ -175,34 +158,10 @@ R
      (/ (reduce + (map #(* % %) values))
         n))))
 
-(rmse [[1 0 3 0]
-       [0 0 2 2]
-       [5 0 1 0]])
-
-(clean-zero-cols [[1 0 3 0]
-                  [0 0 2 2]
-                  [5 0 1 0]] [[0 0 1 7]
-                              [3 0 4 8]])
-
-
-(def data (get-train-test C 2.5))
-(def prep-data (assoc (clean-zero-cols (:train data) (:test data)) :indexes (:indexes data)))
-
-data
-prep-data
-
-(def train-set (:train prep-data))
-(def test-set (:test prep-data))
-
-(print-matrix train-set)
-
 (defn initialize-feature-matrix [rows cols]
   (vec (for [_ (range rows)]
          (vec (for [_ (range cols)]
                 (rand 1))))))
-
-(print-matrix train-set)
-(print-matrix test-set)
 
 (defn als-iteration [R V n test-set lambda]
   (loop [i 0
@@ -233,37 +192,26 @@ prep-data
            (let [V (initialize-feature-matrix (count (first train-set)) latent-factor)]
              (als-iteration train-set V 100 test-set param)))))
 
-(def l [1 0.1 0.01 0.001 0.0001])
-(def factors (reverse (drop 1 (range (count @dataset/movies)))))
-(def results (als train-set test-set factors l))
-(apply min-key :rmse results)
 
-results
-
-
-(defn content-based-filtering [n]
+(defn content-based-filtering []
   (let [movies-json (json/generate-string @dataset/movies)
         users-json (json/generate-string (vals @dataset/users))
-        ratings-json (json/generate-string @dataset/ratings)
-        top-n (str n)
-        result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json top-n)]
+        ratings-json (json/generate-string @dataset/ratings) 
+        result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json)]
     (json/parse-string (:out result) true)))
-(def predictions (content-based-filtering 3))
+(def predictions (content-based-filtering))
 predictions
 
-(defn rem-not-pred-users [m idxs]
-  (let [n (m/row-count m)
-        left-idx (remove (set idxs) (range n))]
-    (m/select m left-idx :all)))
-
-(def my-R (rem-not-pred-users C (:indexes prep-data)))
-(print-matrix (multiply-matrices (:U results) (transpose (:V results))))
-(def R-pred (multiply-matrices (:U results) (transpose (:V results))))
+(defn clean-R [mat idxs cols]
+  (let [n-rows (m/row-count mat)
+        n-cols (m/column-count mat)
+        left-rows (remove (set idxs) (range n-rows))
+        left-cols (remove (set cols) (range n-cols))]
+    (m/select mat left-rows left-cols)))
 
 (defn mask-ratings [R R-pred]
   (let [mask (m/emap #(if (zero? %) 1 0) R)]
     (m/mul R-pred mask)))
-(print-matrix (mask-ratings my-R R-pred))
 
 (defn top-rated-movies [n watched-ids]
   (->> @dataset/ratings
@@ -278,17 +226,27 @@ predictions
        (mapv :movie-id)))
 
 (defn movie-recommendation [id]
-  (println "TODO")
-  )
+  (let [l [1 0.1 0.01 0.001 0.0001]
+        factors (reverse (drop 1 (range (count @dataset/movies))))
+        R (fill-matrix! (zero-matrix (count @dataset/users) (count @dataset/movies))
+                        dataset/ratings)
+        data (get-train-test R 2.5 3)
+        prep-data (assoc (clean-zero-cols (:train data) (:test data)) :indexes (:indexes data))
+        train-set (:train prep-data)
+        test-set (:test prep-data)
+        results (als train-set test-set factors l)
+        new-R (clean-R R (:indexes prep-data) (:rem-cols prep-data))
+        R-pred (multiply-matrices (:U results) (transpose (:V results)))] 
+    results))
 
 (defn get-recom-for-user [id min-ratings]
-  (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings)) 
+  (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings))
         n-ratings (count watched-ids)
         u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
         avg-rating (float (/ (reduce + u-ratings) (count u-ratings)))]
     (if (or (< n-ratings min-ratings) (< avg-rating 2.6))
       (top-rated-movies 3 watched-ids)
-      (movie-recommendation id))))
+      (movie-recommendation (dec id)))))
 (get-recom-for-user 4 3)
 
 

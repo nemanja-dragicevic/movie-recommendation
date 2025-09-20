@@ -136,8 +136,30 @@
                      :rating 4}
                     {:user-id 4
                      :movie-id 1
+                     :rating 3}
+                    {:user-id 4
+                     :movie-id 2
+                     :rating 4}
+                    {:user-id 4
+                     :movie-id 3
+                     :rating 3}
+                    {:user-id 4
+                     :movie-id 4
+                     :rating 4}
+                    {:user-id 4
+                     :movie-id 6
+                     :rating 4}
+                    {:user-id 4
+                     :movie-id 7
+                     :rating 2}
+                    {:user-id 4
+                     :movie-id 8
+                     :rating 4}
+                    {:user-id 4
+                     :movie-id 9
+                     :rating 3}
+                    {:user-id 5 
+                     :movie-id 8
                      :rating 5}]))
 
-;; TODO: When user doesn't have enough ratings, recommend the most popular movies
-;; TODO: Connect Python with Clojure
 
