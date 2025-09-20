@@ -14,7 +14,8 @@
                  [buddy/buddy-auth "3.0.323"]
                  [yogthos/config "1.2.1"]
                  [net.mikera/core.matrix "0.63.0"]
-                 [net.mikera/vectorz-clj "0.48.0"]]
+                 [net.mikera/vectorz-clj "0.48.0"]
+                 [midje "1.10.10"]]
   :jvm-opts ["-Dconfig=dev-config.edn"] 
   :main movie-recommendation.endpoints 
   :repl-options {:init-ns movie-recommendation.endpoints})

@@ -255,8 +255,13 @@ predictions
         total (reduce + c)]
     (float (/ total n))))
 
-(filter (fn [v] (not (zero? v))) [2 3 0 4 0 0 0 2 0])
-(average [2 3 0 4 0 0 0 2 0])
+(defn normalize [mat]
+  (mapv (fn [row]
+          (mapv #(/ % 5.0) row))
+        mat))
 
+(defn find-index [idx removed]
+  (let [n-rem (count (filter #(< % idx) removed))]
+    (- idx n-rem)))
 
 
