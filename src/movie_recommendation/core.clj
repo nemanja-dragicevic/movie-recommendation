@@ -249,7 +249,14 @@ predictions
       (movie-recommendation (dec id)))))
 (get-recom-for-user 4 3)
 
+(defn average [coll]
+  (let [c (filter (fn [v] (not (zero? v))) coll)
+        n (count c)
+        total (reduce + c)]
+    (float (/ total n))))
 
+(filter (fn [v] (not (zero? v))) [2 3 0 4 0 0 0 2 0])
+(average [2 3 0 4 0 0 0 2 0])
 
 
 
