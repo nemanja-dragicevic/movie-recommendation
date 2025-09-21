@@ -154,7 +154,31 @@
                      (and (= (count (:train res)) (count (:test res)))
                           (= (dec (count R)) (count (:test res)))) => true))))
 
-
+(facts "Test clean zero cols function"
+       (fact "There are no columns to remove"
+             (let [train-set [[5 3 0 4]
+                          [2 0 1 5]
+                          [0 0 2 3]]
+                   test-set [[2 3 0 4]
+                          [2 0 1 5]
+                          [0 0 2 3]]
+                   res (clean-zero-cols train-set test-set)]
+               (fact "Removed columns is empty"
+                     (empty? (:rem-cols res)) => true)
+               (fact "Train and test sets remain the same"
+                     (and (= train-set (:train res)) (= test-set (:test res))) => true)))
+       (fact "There are columns to remove"
+             (let [train-set [[5 0 0 4]
+                              [2 0 1 5]
+                              [0 0 2 3]]
+                   test-set [[2 3 0 4]
+                             [2 0 1 5]
+                             [0 0 2 3]]
+                   res (clean-zero-cols train-set test-set)]
+               (fact "Removed columns is empty"
+                     (empty? (:rem-cols res)) => false)
+               (fact "Train and test sets are not the same"
+                     (and (not (= train-set (:train res))) (not (= test-set (:test res)))) => true))))
 
 
 

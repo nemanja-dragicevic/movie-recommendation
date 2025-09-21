@@ -174,7 +174,11 @@
                      (conj test test-row)
                      indexes))))))))
 
-(defn clean-zero-cols [tr te]
+(defn clean-zero-cols 
+  "Removes columns from the train set which values are all zeroes. 
+   Column with the same index will be removed from the test set and 
+   all the indexes will be written in :rem-cols key"
+  [tr te]
   (let [train-col (transpose tr)
         rem-cols (keep-indexed (fn [i col]
                                  (when (every? zero? col) i))
