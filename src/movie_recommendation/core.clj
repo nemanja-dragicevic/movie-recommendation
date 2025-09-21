@@ -107,11 +107,22 @@
           B (multiply-matrices (transpose temp-U) (transpose values))]
       (multiply-matrices (m/inverse A) B))))
 
-(defn zero-matrix [r c]
-  (m/zero-matrix r c))
-(m/zero-matrix (count @dataset/users) (count @dataset/movies))
+(defn zero-matrix 
+  "Initializing zero matrix of size rxc 
+   which will be later used to fill the values from the user ratings atom"
+  [r c]
+  (if (or (<= r 0) (<= c 0))
+    "Cannot create zero matrix"
+    (m/zero-matrix r c)))
+;; (m/zero-matrix (count @dataset/users) (count @dataset/movies))
 
-(defn fill-matrix! [mat ratings]
+(defn fill-matrix! 
+  "Filling the zero matrix with values from 
+   the user ratings atom. If a user haven't rated a movie yet,
+   the rating will be set to 0
+   
+   If the ratings vector is empty, the zero matrix itself will be returned"
+  [mat ratings]
   (doseq [{:keys [user-id movie-id rating]} @ratings]
     (m/mset! mat (dec user-id) (dec movie-id) rating))
   mat)

@@ -1,7 +1,8 @@
 (ns movie-recommendation.core-test
   (:require [clojure.test :refer :all]
             [movie-recommendation.core :refer :all]
-            [midje.sweet :refer :all]))
+            [midje.sweet :refer :all]
+            [clojure.core.matrix :as m]))
 
 (facts "Test transposing of the matrix with different dimensions"
        (fact "Transposing 2x2 matrix"
@@ -75,6 +76,37 @@
             result (fix-U-solve-V R U lambda)]
         (count result) => 3
         (every? vector? result) => true))
+
+(facts "Test creating a zero matrix"
+       (fact "r and c are both higher than 0"
+             (m/to-nested-vectors (zero-matrix 3 2)) => [[0.0,0.0],
+                                   [0.0,0.0],
+                                   [0.0,0.0]])
+       (fact "r is negative"
+             (zero-matrix -3 2) => "Cannot create zero matrix")
+       (fact "c is negative"
+             (zero-matrix 3 -2) => "Cannot create zero matrix")
+       (fact "r is zero"
+             (zero-matrix 0 2) => "Cannot create zero matrix")
+       (fact "c is zero"
+             (zero-matrix 3 0) => "Cannot create zero matrix"))
+
+(facts "Test filling a zero matrix"
+       (fact "There are user ratigns"
+             (m/to-nested-vectors (fill-matrix! (zero-matrix 2 2)
+                                                (atom [{:user-id 1
+                                                        :movie-id 1
+                                                        :rating 2}
+                                                       {:user-id 1
+                                                        :movie-id 2
+                                                        :rating 4}
+                                                       {:user-id 2
+                                                        :movie-id 2
+                                                        :rating 5}]))) => [[2.0, 4.0] [0.0, 5.0]])
+       (fact "There are no user ratigns"
+             (m/to-nested-vectors (fill-matrix! (zero-matrix 2 2)
+                           (atom []))) => [[0.0, 0.0] [0.0, 0.0]]))
+
 
 
 
