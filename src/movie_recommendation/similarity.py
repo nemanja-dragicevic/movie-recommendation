@@ -53,7 +53,7 @@ def recommend_movies(user_id):
     for idx in sims.argsort(descending=True):
         movie = movies[idx]
         if movie["id"] not in rated_movie_ids:
-            recommendations.append((movie["id"], sims[idx].item()))
+            recommendations.append((movie["id"] - 1, sims[idx].item()))
 
     return recommendations
 

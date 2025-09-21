@@ -14,13 +14,6 @@
 (defn transpose [matrix]
   (apply mapv vector matrix))
 
-;; (defn transpose [matrix odakle]
-;;   (println "To transpose:", matrix)
-;;   (println odakle)
-;;   (print-matrix matrix)
-;;   (println "----------------------")
-;;   (apply mapv vector matrix))
-
 (defn multiply-matrices [m1 m2]
   (try
     (m/mmul m1 m2)
@@ -199,8 +192,8 @@
         ratings-json (json/generate-string @dataset/ratings) 
         result (sh "./movie-venv/bin/python3" "src/movie_recommendation/similarity.py" movies-json users-json ratings-json)]
     (json/parse-string (:out result) true)))
-(def predictions (content-based-filtering))
-predictions
+;; (def predictions (content-based-filtering))
+;; predictions
 
 (defn clean-R [mat idxs cols]
   (let [n-rows (m/row-count mat)
@@ -214,40 +207,18 @@ predictions
     (m/mul R-pred mask)))
 
 (defn top-rated-movies [n watched-ids]
-  (->> @dataset/ratings
-       (remove #(some #{(:movie-id %)} watched-ids))
-       (group-by :movie-id)
-       (map (fn [[movie-id rat]]
-              {:movie-id movie-id
-               :avg-rating (/ (reduce + (map :rating rat))
-                              (count rat))}))
-       (sort-by :avg-rating >)
-       (take n)
-       (mapv :movie-id)))
+  (let [top-movie-ids (->> @dataset/ratings 
+                           (remove #(some #{(:movie-id %)} watched-ids)) 
+                           (group-by :movie-id) 
+                           (map (fn [[movie-id rat]] 
+                                  {:movie-id movie-id 
+                                   :avg-rating (/ (reduce + (map :rating rat)) 
+                                                  (count rat))})) 
+                           (sort-by :avg-rating >) 
+                           (take n) 
+                           (mapv :movie-id))]
+    (filter #(some #{(:id %)} top-movie-ids) @dataset/movies)))
 
-(defn movie-recommendation [id]
-  (let [l [1 0.1 0.01 0.001 0.0001]
-        factors (reverse (drop 1 (range (count @dataset/movies))))
-        R (fill-matrix! (zero-matrix (count @dataset/users) (count @dataset/movies))
-                        dataset/ratings)
-        data (get-train-test R 2.5 3)
-        prep-data (assoc (clean-zero-cols (:train data) (:test data)) :indexes (:indexes data))
-        train-set (:train prep-data)
-        test-set (:test prep-data)
-        results (als train-set test-set factors l)
-        new-R (clean-R R (:indexes prep-data) (:rem-cols prep-data))
-        R-pred (multiply-matrices (:U results) (transpose (:V results)))] 
-    results))
-
-(defn get-recom-for-user [id min-ratings]
-  (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings))
-        n-ratings (count watched-ids)
-        u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
-        avg-rating (float (/ (reduce + u-ratings) (count u-ratings)))]
-    (if (or (< n-ratings min-ratings) (< avg-rating 2.6))
-      (top-rated-movies 3 watched-ids)
-      (movie-recommendation (dec id)))))
-(get-recom-for-user 4 3)
 
 (defn average [coll]
   (let [c (filter (fn [v] (not (zero? v))) coll)
@@ -263,5 +234,74 @@ predictions
 (defn find-index [idx removed]
   (let [n-rem (count (filter #(< % idx) removed))]
     (- idx n-rem)))
+
+(defn insert-at-indexes [coll indexes val]
+  (let [sorted-indexes (sort indexes)]
+    (reduce (fn [c [offset idx]]
+              (let [pos (+ idx offset)]
+                (vec (concat (subvec c 0 pos)
+                             [val]
+                             (subvec c pos)))))
+            (vec coll)
+            (map-indexed vector sorted-indexes))))
+
+(defn get-movie-recom-info [recs]
+  (map (fn [{:keys [movie-id similarity]}]
+         (let [movie (some #(when (= (:id %) movie-id) %) @dataset/movies)]
+           (merge movie {:similarity (format "%.2f%%" (* similarity 100))})))
+       recs))
+
+(defn merge-scores [user-content user-colab alpha-cf alpha-cb]
+  (->> user-content
+       (map (fn [[idx val]]
+              {:movie-id (inc idx)
+               :similarity (+ (* alpha-cb val)
+                              (* alpha-cf (nth user-colab idx 0.0)))}))
+       (sort-by :similarity >)
+       vec))
+
+;; :indexes starts with 0
+;; :rem-cols starts with 0
+;; idx = user-id - 1
+(defn recommend [idx colab prep-data content]
+  (let [row-idx (find-index idx (:indexes prep-data))
+        user-colab (m/get-row colab row-idx) ;; colab recommendations
+        user-content (some #(when (= (:id %) (inc idx)) (:recs %)) content) ;; content recommendations
+        ;; content-ids (map first user-content) ;; movie-idx iz contenta
+        colab-avg (average user-colab)
+        user-colab-filled (insert-at-indexes user-colab (:rem-cols prep-data) colab-avg)
+        alpha-cf 0.7
+        alpha-cb 0.3
+        recommendations (merge-scores user-content user-colab-filled alpha-cf alpha-cb)]
+    (get-movie-recom-info recommendations)))
+
+(defn movie-recommendation [id]
+  (let [l [1 0.1 0.01 0.001 0.0001]
+        factors (reverse (drop 1 (range (count @dataset/movies))))
+        R (fill-matrix! (zero-matrix (count @dataset/users) (count @dataset/movies))
+                        dataset/ratings)
+        data (get-train-test R 2.5 3)
+        prep-data (assoc (clean-zero-cols (:train data) (:test data)) :indexes (:indexes data))
+        train-set (:train prep-data)
+        test-set (:test prep-data)
+        results (als train-set test-set factors l)
+        new-R (clean-R R (:indexes prep-data) (:rem-cols prep-data))
+        R-pred (multiply-matrices (:U results) (transpose (:V results)))
+        predictions (content-based-filtering)]
+    (recommend id
+               (normalize (mask-ratings new-R R-pred))
+               prep-data
+               (:result predictions))))
+
+(defn get-recom-for-user [id min-ratings]
+  (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings))
+        n-ratings (count watched-ids)
+        u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
+        avg-rating (float (/ (reduce + u-ratings) (count u-ratings)))]
+    (if (or (< n-ratings min-ratings) (< avg-rating 2.6))
+      (top-rated-movies 3 watched-ids)
+      (movie-recommendation (dec id)))))
+;; (get-recom-for-user 5 3)
+
 
 
