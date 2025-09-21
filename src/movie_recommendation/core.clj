@@ -128,7 +128,12 @@
   mat)
 
 
-(defn get-train-test [mat min-avg min-ratings]
+(defn get-train-test 
+  "Separating R matrix of user ratings to train and test set using 80/20 rule.
+   
+   If a certain user doesn't have enough ratings, that row will be removed. 
+   Also, if a user have low ratings, that row will be removed."
+  [mat min-avg min-ratings]
   (let [rows (m/row-count mat)
         cols (m/column-count mat)]
     (loop [r 0

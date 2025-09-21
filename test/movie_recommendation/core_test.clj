@@ -74,8 +74,10 @@
             U [[4.43 -1.3] [3.64 0.91]]
             lambda 0.1
             result (fix-U-solve-V R U lambda)]
-        (count result) => 3
-        (every? vector? result) => true))
+        (fact "There are 3 movies"
+         (count result) => 3)
+        (fact "Every element is a vector"
+              (every? vector? result) => true)))
 
 (facts "Test creating a zero matrix"
        (fact "r and c are both higher than 0"
@@ -106,6 +108,51 @@
        (fact "There are no user ratigns"
              (m/to-nested-vectors (fill-matrix! (zero-matrix 2 2)
                            (atom []))) => [[0.0, 0.0] [0.0, 0.0]]))
+
+(facts "Test separate dataset on train and test sets"
+       (fact "There are no removed users"
+        (let [res (get-train-test [[5 4 0 3 0 2 1 0]
+                                   [4 0 5 0 3 0 2 4]
+                                   [1 0 5 0 0 2 0 3]
+                                   [3 4 2 5 0 0 4 0]
+                                   [0 2 0 0 5 4 0 3]]
+                                  2.5 3)]
+          (fact "Indexes should be empty"
+                (count (:indexes res)) => 0)
+          (fact "Train and test should have same number of rows"
+                (= (count (:train res)) (count (:test res))) => true)
+          (fact "Train and test should have same number of columns"
+                (= (count (first (:train res))) (count (first (:test res)))) => true)))
+       (fact "There are users with less than required number of ratings"
+             (let [R [[5 4 0 3 0 2 1 0]
+                      [4 0 5 0 3 0 2 4]
+                      [1 0 0 0 0 2 0 3]
+                      [3 4 2 5 0 0 4 0]
+                      [0 2 0 0 5 4 0 3]]
+                   res (get-train-test R
+                                       2.5 3)]
+               (fact "Indexes should not be empty"
+                     (pos? (count (:indexes res))) => true)
+               (fact "User with index 2 is removed"
+                     (:indexes res) => [2])
+               (fact "Train and test have one row less than R matrix"
+                     (and (= (count (:train res)) (count (:test res))) 
+                          (= (dec (count R)) (count (:test res)))) => true)))
+       (fact "There are users with very low ratings"
+             (let [R [[5 4 0 3 0 2 1 0]
+                      [4 0 5 0 3 0 2 4]
+                      [1 0 3 5 0 2 0 3]
+                      [3 4 2 5 0 0 4 0]
+                      [0 1 0 0 2 1 0 3]]
+                   res (get-train-test R
+                                       2.5 3)]
+               (fact "Indexes should not be empty"
+                     (pos? (count (:indexes res))) => true)
+               (fact "User with index 4 is removed"
+                     (:indexes res) => [4])
+               (fact "Train and test have one row less than R matrix"
+                     (and (= (count (:train res)) (count (:test res)))
+                          (= (dec (count R)) (count (:test res)))) => true))))
 
 
 
