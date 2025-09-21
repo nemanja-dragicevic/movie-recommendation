@@ -117,6 +117,13 @@
          :body "Successfully added rating"})
       (bad-request (str "Movie with id ", movie-id, " doesn't exist")))))
 
+(defn recommendation [id]
+  (println "Got here...")
+  (let [res (main-fn/get-recom-for-user id 3)]
+    (println res)
+    {:status 200
+     :body res}))
+
 (defn restrict-to-user [id req fun]
   (let [user-id (get-in req [:identity :id])]
     (if (= id user-id)
@@ -137,7 +144,9 @@
   (GET "/api/watched/:id" [id :as req]
     (restrict-to-user (Integer/parseInt id) req get-user-watched))
   (POST "/api/rating/:id" [id :as req]
-    (restrict-to-user (Integer/parseInt id) req add-rating)))
+    (restrict-to-user (Integer/parseInt id) req add-rating))
+  (GET "/api/recommend/:id" [id :as req]
+    (restrict-to-user (Integer/parseInt id) req recommendation)))
 
 (defroutes app-routes
   public-routes
