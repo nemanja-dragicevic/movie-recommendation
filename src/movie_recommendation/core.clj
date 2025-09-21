@@ -194,26 +194,46 @@
      :test (drop-cols te rem-cols)
      :rem-cols rem-cols}))
 
-(defn get-rmse-mat [A B]
-  (mapv (fn [row-a row-b]
-          (mapv (fn [a b]
-                  (if (zero? b)
-                    0
-                    (abs (- a b))))
-                row-a row-b))
-        A B))
+(defn get-rmse-mat 
+  "Returns a matrix representing the absolute differences between the 
+   corresponding elements of matrix A (predicted values) and matrix B (observed values).
 
-(defn rmse [m]
-  (let [values (mapcat identity m)
-        n      (count values)]
-    (Math/sqrt
-     (/ (reduce + (map #(* % %) values))
-        n))))
+   If an element in matrix B is zero, the difference is set to zero, 
+   as we are only interested in comparing positions where an observed value exists.
+   "
+  [A B]
+  (if (or (not (= (count A) (count B))) (not (= (count (first A)) (count (first B)))))
+    "Cannot get RMSE difference matrix"
+    (mapv (fn [row-a row-b]
+            (mapv (fn [a b]
+                    (if (zero? b)
+                      0
+                      (abs (- a b))))
+                  row-a row-b))
+          A B)))
 
-(defn initialize-feature-matrix [rows cols]
-  (vec (for [_ (range rows)]
-         (vec (for [_ (range cols)]
-                (rand 1))))))
+(defn rmse 
+  "Calculating RMSE (Root Mean Squared error)
+   
+   If the matrix is empty, it returns appropriate message"
+  [m]
+  (if (empty? m)
+    "Cannot calculate RMSE, matrix is empty"
+    (let [values (mapcat identity m)
+          n      (count values)]
+      (Math/sqrt
+       (/ (reduce + (map #(* % %) values))
+          n)))))
+
+(defn initialize-feature-matrix 
+  "Initializes a matrix of size (rows x cols) with values 
+   in range [0, 1)"
+  [rows cols]
+  (if (or (not (pos? rows)) (not (pos? cols)))
+    "Cannot initialize the matrix"
+    (vec (for [_ (range rows)]
+           (vec (for [_ (range cols)]
+                  (rand)))))))
 
 (defn als-iteration [R V n test-set lambda]
   (loop [i 0

@@ -180,7 +180,38 @@
                (fact "Train and test sets are not the same"
                      (and (not (= train-set (:train res))) (not (= test-set (:test res)))) => true))))
 
+(facts "Test get differences between predicted and observed values in matrices"
+       (fact "Matrix are of the same dimension"
+             (get-rmse-mat [[1 2 0]
+                            [4 5 2]] 
+                           [[5 2 0]
+                            [3 0 4]]) => [[4 0 0] [1 0 2]])
+       (fact "Matrix are not the same dimension"
+             (get-rmse-mat [[1 2 0]
+                            [4 5 2]]
+                           [[5 2]
+                            [3 0]]) => "Cannot get RMSE difference matrix"))
 
+(facts "Test calculating RMSE"
+       (fact "Matrix is not empty"
+             (rmse [[6 0 0] [8 0 10]]) => 5.773502691896257)
+       (fact "Matrix is empty"
+             (rmse []) => "Cannot calculate RMSE, matrix is empty"))
+
+(facts "Test initializing U and V matrices for Alternating Least Squares method"
+       (fact "Parameters are positive"
+             (let [rows 2
+                   cols 3
+                   res (initialize-feature-matrix rows cols)]
+               (fact "Number of rows is same as `rows` parameter"
+                     (= (count res) rows) => true)
+               (fact "Number of columns is same as `cols` parameter"
+                     (= (count (first res)) cols) => true)))
+       (fact "Parameters are zero or negative"
+             (fact "Rows param is negative"
+                   (initialize-feature-matrix -2 3) => "Cannot initialize the matrix")
+             (fact "Cols param is zero"
+                   (initialize-feature-matrix 2 0) => "Cannot initialize the matrix")))
 
 
 
