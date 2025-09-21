@@ -27,6 +27,56 @@
        (fact "Empty matrices"
              (multiply-matrices [] []) => "Cannot multiply matrices with dimensions: [0 0][0 0]"))
 
+(facts "Test identity matrix"
+       (fact "n is higher than zero"
+             (identity-matrix 3 1) => [[1 0 0] [0 1 0] [0 0 1]])
+       (fact "works with different values on diagonal"
+             (identity-matrix 3 7) => [[7 0 0] [0 7 0] [0 0 7]])
+       (fact "n is zero"
+             (identity-matrix 0 1) => []))
+
+(facts "Test adding two matrices"
+       (fact "Two empty matrices"
+             (add-matrices [] []) => [])
+       (fact "Two matrices of the same size"
+             (add-matrices [[1 2 3] [4 5 6]] [[7 8 9] [10 11 12]]) => [[8 10 12] [14 16 18]])
+       (fact "Two matrices of not the same size"
+             (add-matrices [[1 2 3] [4 5 6]] [[7 8] [10 11]]) => "Cannot add matrices with dimensions: [2 3][2 2]")
+       (fact "One matrix is empty"
+             (add-matrices [[1]] []) => "Cannot add matrices with dimensions: [1 1][0 0]"))
+
+(fact "Test merge into matrix an output from a function"
+      (merge-into-matrix (fix-V-solve-U [[5 0 3] [4 1 0]]
+                                        [[1 0] [0 1] [1 1]]
+                                        0.1))
+      => :expected
+      (provided
+       (fix-V-solve-U [[5 0 3] [4 1 0]]
+                      [[1 0] [0 1] [1 1]]
+                      0.1) => :mocked
+       (merge-into-matrix :mocked) => :expected))
+
+(fact "Test Fix V solve U step of ALS method. 
+       Number of rows in U is same as number of users in R 
+       and number of columns is the same as number of columns in V"
+      (let [R [[5 0 3] [4 1 0]]
+            V [[1 0] [0 1] [1 1]]
+            lambda 0.1
+            result (fix-V-solve-U R V lambda)]
+        (count result) => 2
+        (every? vector? result) => true))
+
+(fact "Test Fix U solve V step of ALS method. 
+       Number of rows in V is same as number of movies in R 
+       and number of columns is the same as number of columns in U"
+      (let [R [[5 0 3] [4 1 0]]
+            U [[4.43 -1.3] [3.64 0.91]]
+            lambda 0.1
+            result (fix-U-solve-V R U lambda)]
+        (count result) => 3
+        (every? vector? result) => true))
+
+
 
 
 

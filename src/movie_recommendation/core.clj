@@ -11,37 +11,68 @@
   (doseq [row matrix]
     (println row)))
 
-(defn transpose [matrix] 
+(defn transpose 
+  "Returns a transposed matrix of a given matrix
+   
+   Returns an empty matrix if the given matrix is also empty"
+  [matrix]
   (if (empty? matrix)
     []
     (apply mapv vector matrix)))
 
-(defn multiply-matrices [m1 m2]
+(defn multiply-matrices 
+  "Performs matrix multiplication on two matrices
+   
+   Returns string message if the number of columns of first matrix
+   and number of rows of second matrix are not equivalent, or there are no values in both matrices"
+  [m1 m2]
   (let [m1-col (count (first m1))
         m2-row (count m2)]
-    (if (and (= m1-col m2-row) (> m1-col 0))
+    (if (and (= m1-col m2-row) (> m1-col 0) (> m2-row 0))
       (m/mmul m1 m2)
       (str "Cannot multiply matrices with dimensions: "
            "[", (count m1) " " (count (first m1)), "]"
            "[" (count m2) " " (count (first m2)) "]"))))
 
-(defn identity-matrix [n lambda]
+(defn identity-matrix 
+  "Returns an identity (squared) matrix of size nxn 
+   with values lambda on main diagonal
+   
+   If n is 0, it returns an empty vector"
+  [n lambda]
   (mapv (fn [i]
           (mapv (fn [j] (if (= i j) (* 1 lambda) 0)) (range n)))
         (range n)))
 
-(defn add-matrices [m1 m2]
+(defn add-matrices 
+  "Adds two matrices using core.matrix. 
+   
+   Returns an error message if dimensions do not match."
+  [m1 m2]
   (try
     (m/add m1 m2)
     (catch java.lang.Exception _
       (str "Cannot add matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
            "[", (count m2), " ", (count (first m2)), "]"))))
 
-(defn merge-into-matrix [v]
+(defn merge-into-matrix 
+  "Used for merging the output of fix-V-solve-U and fix-U-solve-V functions
+   to get a matrix as a result instead of collection"
+  [v]
   (vec (for [row v]
          (vec (mapcat identity row)))))
 
-(defn fix-V-solve-U [R V lambda]
+(defn fix-V-solve-U
+  "First step in an iteration of the Alternating Least Squares (ALS) algorithm,
+   where the item-feature matrix V is fixed, and the user-feature matrix U is updated.
+
+   This is done by solving a regularized least squares problem for each user.
+
+   The regularization parameter `lambda` (also written as λ) is used to 
+   reduce overfitting by penalizing large feature values in the solution.
+   Typical values of lambda are small (e.g., 0.01 to 1.0), and it should 
+   be tuned based on the dataset."
+  [R V lambda]
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
           indexes (mapv first pairs)
@@ -51,16 +82,20 @@
           id-mat (identity-matrix (count result) lambda)
           A (add-matrices result id-mat)
           B (multiply-matrices (transpose temp-V) (transpose values))]
-      ;; (println "Row: ", row)
-      ;; (println "Pairs: ", pairs, " Indexes: ", indexes, " Values: ", values)
-      ;; (println "Result: ", result)
-      ;; (println "A: ", A)
-      ;; (println "B: ", B)
-      ;; (println "Values: ", values, " temp-v: ", temp-V)
-      ;; (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values)))
       (multiply-matrices (m/inverse A) B))))
 
-(defn fix-U-solve-V [R U lambda]
+(defn fix-U-solve-V 
+  "Second step in an iteration of the Alternating Least Squares (ALS) algorithm,
+   where the user-feature matrix U is fixed, and the item-feature matrix V is updated.
+
+   This step solves a regularized least squares problem for each item, using the
+   fixed user-feature vectors from the previous step.
+
+   The regularization parameter `lambda` (λ) helps prevent overfitting by penalizing
+   large magnitudes in the item-feature vectors. Typical lambda values are small
+   (e.g., 0.01 to 1.0), and should be selected based on validation performance.
+   "
+  [R U lambda]
   (for [col (transpose R)]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) col)
           indexes (mapv first pairs)
