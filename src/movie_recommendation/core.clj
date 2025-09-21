@@ -11,15 +11,19 @@
   (doseq [row matrix]
     (println row)))
 
-(defn transpose [matrix]
-  (apply mapv vector matrix))
+(defn transpose [matrix] 
+  (if (empty? matrix)
+    []
+    (apply mapv vector matrix)))
 
 (defn multiply-matrices [m1 m2]
-  (try
-    (m/mmul m1 m2)
-    (catch Exception _
-      (str "Cannot multiply matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
-           "[", (count m2), " ", (count (first m2)), "]"))))
+  (let [m1-col (count (first m1))
+        m2-row (count m2)]
+    (if (and (= m1-col m2-row) (> m1-col 0))
+      (m/mmul m1 m2)
+      (str "Cannot multiply matrices with dimensions: "
+           "[", (count m1) " " (count (first m1)), "]"
+           "[" (count m2) " " (count (first m2)) "]"))))
 
 (defn identity-matrix [n lambda]
   (mapv (fn [i]
@@ -165,7 +169,7 @@
     (if (>= i n)
       (do
         (println "Max iterations reached")
-        (println "Data: ")
+        (println "Data: ", {:U res-U :V res-V :rmse rmse-val})
         {:U res-U :V res-V :rmse rmse-val})
       (let [temp-U (merge-into-matrix (fix-V-solve-U R mat-V lambda))
             temp-V (merge-into-matrix (fix-U-solve-V R temp-U lambda))
