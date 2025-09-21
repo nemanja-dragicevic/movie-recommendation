@@ -1,5 +1,5 @@
 (ns movie-recommendation.endpoints
-  (:require [compojure.core :refer [defroutes GET POST]] 
+  (:require [compojure.core :refer [defroutes GET POST]]
             [compojure.route :as route]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.defaults :refer [wrap-defaults api-defaults]]
@@ -9,7 +9,8 @@
             [config.core :refer [env]]
             [cheshire.core :as json]
             [clojure.string :as string]
-            [movie-recommendation.dataset :refer [users, ratings, movies]]))
+            [movie-recommendation.dataset :refer [users, ratings, movies]]
+            [movie-recommendation.core :as main-fn]))
 
 (def secret-key (:secret-key env))
 
@@ -19,7 +20,7 @@
    :body {:error "Unauthorized"}})
 
 (defn forbidden []
-  {:status 403 
+  {:status 403
    :headers {"Content-Type" "application/json"}
    :body {:error "Cannot access other users’ data"}})
 
@@ -46,7 +47,7 @@
    :body    (json/generate-string @users)})
 
 (defn register [request]
-  (let [{:keys [firstname lastname username password]} (:body request)] 
+  (let [{:keys [firstname lastname username password]} (:body request)]
     (cond
       (string/blank? username)
       {:status 400
@@ -89,6 +90,13 @@
         {:status 200
          :body {:token token}}))))
 
+(defn get-movie-by-id [id]
+  (let [movie (filter #(= (:id %) id) @movies)]
+    (if (empty? movie)
+      (bad-request (str "There is not movie with id: " id))
+      {:status 200
+       :body movie})))
+
 (defn get-user-watched [id]
   (let [rated-movies (->> @ratings
                           (filter #(= (:user-id %) id))
@@ -101,18 +109,25 @@
   (let [{:keys [movie-id rating]} (:body req)]
     (println id, movie-id, rating)
     (if (some #(= (:id %) movie-id) @movies)
-      (do 
+      (do
         (swap! ratings conj {:user-id id
-                           :movie-id movie-id
-                           :rating rating})
+                             :movie-id movie-id
+                             :rating rating})
         {:status 200
          :body "Successfully added rating"})
       (bad-request (str "Movie with id ", movie-id, " doesn't exist")))))
 
+(defn recommendation [id]
+  (println "Got here...")
+  (let [res (main-fn/get-recom-for-user id 3)]
+    (println res)
+    {:status 200
+     :body res}))
+
 (defn restrict-to-user [id req fun]
   (let [user-id (get-in req [:identity :id])]
     (if (= id user-id)
-      (try 
+      (try
         (fun id req)
         (catch clojure.lang.ArityException _
           (fun id)))
@@ -120,14 +135,18 @@
 
 (defroutes public-routes
   (POST "/register" req (register req))
-  (POST "/login" req (login req)))
+  (POST "/login" req (login req))
+  (GET "/api/movie/:id" [id]
+    (get-movie-by-id (Integer/parseInt id))))
 
 (defroutes protected-routes
   (GET "/users" [] (get-users))
-  (GET "/api/watched/:id" [id :as req] 
+  (GET "/api/watched/:id" [id :as req]
     (restrict-to-user (Integer/parseInt id) req get-user-watched))
-  (POST "/api/rating/:id" [id :as req] 
-    (restrict-to-user (Integer/parseInt id) req add-rating)))
+  (POST "/api/rating/:id" [id :as req]
+    (restrict-to-user (Integer/parseInt id) req add-rating))
+  (GET "/api/recommend/:id" [id :as req]
+    (restrict-to-user (Integer/parseInt id) req recommendation)))
 
 (defroutes app-routes
   public-routes
@@ -137,7 +156,7 @@
 
 (def app
   (-> app-routes
-      (wrap-json-response) 
+      (wrap-json-response)
       (wrap-json-body {:keywords? true})
       (wrap-defaults api-defaults)))
 

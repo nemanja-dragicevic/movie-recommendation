@@ -1,4 +1,4 @@
-# movie-recommendation
+# Movie Recommendation System
 
 A Clojure library designed to ... well, that part is up to you.
 
