@@ -45,8 +45,11 @@ lein run
 
 ## Literature
 
-- [SentenceTransformers] (https://sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html)
-
-- [JWT Token] (https://funcool.github.io/buddy-hashers/latest/user-guide.html)
-
-- (.edn file) (https://github.com/yogthos/config)
+- [Matrix Factorization](https://www.youtube.com/watch?v=ZspR5PZemcs)
+- [SentenceTransformers](https://sbert.net/docs/sentence_transformer/usage/semantic_textual_similarity.html)
+- [Cheshire JSON](https://github.com/dakrone/cheshire)
+- [Matrix](https://github.com/mikera/core.matrix)
+- [JWT Token](https://funcool.github.io/buddy-hashers/latest/user-guide.html)
+- [.edn file](https://github.com/yogthos/config)
+- [Ring](https://github.com/ring-clojure/ring-json)
+- [Midje](https://github.com/marick/Midje)
