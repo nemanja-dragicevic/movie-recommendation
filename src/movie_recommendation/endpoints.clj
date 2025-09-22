@@ -102,8 +102,10 @@
                           (filter #(= (:user-id %) id))
                           (map :movie-id)
                           set)]
-    {:status 200
-     :body (map :title (filter #(rated-movies (:id %)) @movies))}))
+    (if (empty? rated-movies)
+      (bad-request (str "User with id: " id " haven't watched any movie yet"))
+      {:status 200
+       :body (map :title (filter #(rated-movies (:id %)) @movies))})))
 
 (defn add-rating [id req]
   (let [{:keys [movie-id rating]} (:body req)]
