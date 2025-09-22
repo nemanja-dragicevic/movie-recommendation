@@ -102,20 +102,28 @@
                           (filter #(= (:user-id %) id))
                           (map :movie-id)
                           set)]
-    {:status 200
-     :body (map :title (filter #(rated-movies (:id %)) @movies))}))
+    (if (empty? rated-movies)
+      (bad-request (str "User with id: " id " haven't watched any movie yet"))
+      {:status 200
+       :body (map :title (filter #(rated-movies (:id %)) @movies))})))
 
 (defn add-rating [id req]
   (let [{:keys [movie-id rating]} (:body req)]
-    (println id, movie-id, rating)
-    (if (some #(= (:id %) movie-id) @movies)
-      (do
-        (swap! ratings conj {:user-id id
-                             :movie-id movie-id
-                             :rating rating})
-        {:status 200
-         :body "Successfully added rating"})
-      (bad-request (str "Movie with id ", movie-id, " doesn't exist")))))
+    ;; (println id movie-id rating)
+    (if (some #(= (:id %) movie-id) @movies) 
+      (if (some #(and (= (:user-id %) id)
+                      (= (:movie-id %) movie-id))
+                @ratings)
+        {:status 400
+         :body (str "User " id " already rated movie " movie-id)}
+
+        (do
+          (swap! ratings conj {:user-id id
+                               :movie-id movie-id
+                               :rating rating})
+          {:status 200
+           :body "Successfully added rating"}))
+      (bad-request (str "Movie with id " movie-id " doesn't exist")))))
 
 (defn recommendation [id]
   (println "Got here...")

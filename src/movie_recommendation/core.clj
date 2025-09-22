@@ -11,33 +11,68 @@
   (doseq [row matrix]
     (println row)))
 
-(defn transpose [matrix]
-  (apply mapv vector matrix))
+(defn transpose 
+  "Returns a transposed matrix of a given matrix
+   
+   Returns an empty matrix if the given matrix is also empty"
+  [matrix]
+  (if (empty? matrix)
+    []
+    (apply mapv vector matrix)))
 
-(defn multiply-matrices [m1 m2]
-  (try
-    (m/mmul m1 m2)
-    (catch Exception _
-      (str "Cannot multiply matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
-           "[", (count m2), " ", (count (first m2)), "]"))))
+(defn multiply-matrices 
+  "Performs matrix multiplication on two matrices
+   
+   Returns string message if the number of columns of first matrix
+   and number of rows of second matrix are not equivalent, or there are no values in both matrices"
+  [m1 m2]
+  (let [m1-col (count (first m1))
+        m2-row (count m2)]
+    (if (and (= m1-col m2-row) (> m1-col 0) (> m2-row 0))
+      (m/mmul m1 m2)
+      (str "Cannot multiply matrices with dimensions: "
+           "[", (count m1) " " (count (first m1)), "]"
+           "[" (count m2) " " (count (first m2)) "]"))))
 
-(defn identity-matrix [n lambda]
+(defn identity-matrix 
+  "Returns an identity (squared) matrix of size nxn 
+   with values lambda on main diagonal
+   
+   If n is 0, it returns an empty vector"
+  [n lambda]
   (mapv (fn [i]
           (mapv (fn [j] (if (= i j) (* 1 lambda) 0)) (range n)))
         (range n)))
 
-(defn add-matrices [m1 m2]
+(defn add-matrices 
+  "Adds two matrices using core.matrix. 
+   
+   Returns an error message if dimensions do not match."
+  [m1 m2]
   (try
     (m/add m1 m2)
     (catch java.lang.Exception _
       (str "Cannot add matrices with dimensions: ", "[", (count m1), " ", (count (first m1)), "]",
            "[", (count m2), " ", (count (first m2)), "]"))))
 
-(defn merge-into-matrix [v]
+(defn merge-into-matrix 
+  "Used for merging the output of fix-V-solve-U and fix-U-solve-V functions
+   to get a matrix as a result instead of collection"
+  [v]
   (vec (for [row v]
          (vec (mapcat identity row)))))
 
-(defn fix-V-solve-U [R V lambda]
+(defn fix-V-solve-U
+  "First step in an iteration of the Alternating Least Squares (ALS) algorithm,
+   where the item-feature matrix V is fixed, and the user-feature matrix U is updated.
+
+   This is done by solving a regularized least squares problem for each user.
+
+   The regularization parameter `lambda` (also written as λ) is used to 
+   reduce overfitting by penalizing large feature values in the solution.
+   Typical values of lambda are small (e.g., 0.01 to 1.0), and it should 
+   be tuned based on the dataset."
+  [R V lambda]
   (for [row R]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) row)
           indexes (mapv first pairs)
@@ -47,16 +82,20 @@
           id-mat (identity-matrix (count result) lambda)
           A (add-matrices result id-mat)
           B (multiply-matrices (transpose temp-V) (transpose values))]
-      ;; (println "Row: ", row)
-      ;; (println "Pairs: ", pairs, " Indexes: ", indexes, " Values: ", values)
-      ;; (println "Result: ", result)
-      ;; (println "A: ", A)
-      ;; (println "B: ", B)
-      ;; (println "Values: ", values, " temp-v: ", temp-V)
-      ;; (multiply-matrices (invert-2x2 (matrix-add result id-mat)) (transpose (multiply-matrices (transpose temp-V) values)))
       (multiply-matrices (m/inverse A) B))))
 
-(defn fix-U-solve-V [R U lambda]
+(defn fix-U-solve-V 
+  "Second step in an iteration of the Alternating Least Squares (ALS) algorithm,
+   where the user-feature matrix U is fixed, and the item-feature matrix V is updated.
+
+   This step solves a regularized least squares problem for each item, using the
+   fixed user-feature vectors from the previous step.
+
+   The regularization parameter `lambda` (λ) helps prevent overfitting by penalizing
+   large magnitudes in the item-feature vectors. Typical lambda values are small
+   (e.g., 0.01 to 1.0), and should be selected based on validation performance.
+   "
+  [R U lambda]
   (for [col (transpose R)]
     (let [pairs (keep-indexed (fn [i v] (when (> v 0) [i v])) col)
           indexes (mapv first pairs)
@@ -68,17 +107,33 @@
           B (multiply-matrices (transpose temp-U) (transpose values))]
       (multiply-matrices (m/inverse A) B))))
 
-(defn zero-matrix [r c]
-  (m/zero-matrix r c))
-(m/zero-matrix (count @dataset/users) (count @dataset/movies))
+(defn zero-matrix 
+  "Initializing zero matrix of size rxc 
+   which will be later used to fill the values from the user ratings atom"
+  [r c]
+  (if (or (<= r 0) (<= c 0))
+    "Cannot create zero matrix"
+    (m/zero-matrix r c)))
+;; (m/zero-matrix (count @dataset/users) (count @dataset/movies))
 
-(defn fill-matrix! [mat ratings]
+(defn fill-matrix! 
+  "Filling the zero matrix with values from 
+   the user ratings atom. If a user haven't rated a movie yet,
+   the rating will be set to 0
+   
+   If the ratings vector is empty, the zero matrix itself will be returned"
+  [mat ratings]
   (doseq [{:keys [user-id movie-id rating]} @ratings]
     (m/mset! mat (dec user-id) (dec movie-id) rating))
   mat)
 
 
-(defn get-train-test [mat min-avg min-ratings]
+(defn get-train-test 
+  "Separating R matrix of user ratings to train and test set using 80/20 rule.
+   
+   If a certain user doesn't have enough ratings, that row will be removed. 
+   Also, if a user have low ratings, that row will be removed."
+  [mat min-avg min-ratings]
   (let [rows (m/row-count mat)
         cols (m/column-count mat)]
     (loop [r 0
@@ -119,7 +174,11 @@
                      (conj test test-row)
                      indexes))))))))
 
-(defn clean-zero-cols [tr te]
+(defn clean-zero-cols 
+  "Removes columns from the train set which values are all zeroes. 
+   Column with the same index will be removed from the test set and 
+   all the indexes will be written in :rem-cols key"
+  [tr te]
   (let [train-col (transpose tr)
         rem-cols (keep-indexed (fn [i col]
                                  (when (every? zero? col) i))
@@ -135,28 +194,68 @@
      :test (drop-cols te rem-cols)
      :rem-cols rem-cols}))
 
-(defn get-rmse-mat [A B]
-  (mapv (fn [row-a row-b]
-          (mapv (fn [a b]
-                  (if (zero? b)
-                    0
-                    (abs (- a b))))
-                row-a row-b))
-        A B))
+(defn get-rmse-mat 
+  "Returns a matrix representing the absolute differences between the 
+   corresponding elements of matrix A (predicted values) and matrix B (observed values).
 
-(defn rmse [m]
-  (let [values (mapcat identity m)
-        n      (count values)]
-    (Math/sqrt
-     (/ (reduce + (map #(* % %) values))
-        n))))
+   If an element in matrix B is zero, the difference is set to zero, 
+   as we are only interested in comparing positions where an observed value exists.
+   "
+  [A B]
+  (if (or (not (= (count A) (count B))) (not (= (count (first A)) (count (first B)))))
+    "Cannot get RMSE difference matrix"
+    (mapv (fn [row-a row-b]
+            (mapv (fn [a b]
+                    (if (zero? b)
+                      0
+                      (abs (- a b))))
+                  row-a row-b))
+          A B)))
 
-(defn initialize-feature-matrix [rows cols]
-  (vec (for [_ (range rows)]
-         (vec (for [_ (range cols)]
-                (rand 1))))))
+(defn rmse 
+  "Calculating RMSE (Root Mean Squared error)
+   
+   If the matrix is empty, it returns appropriate message"
+  [m]
+  (if (empty? m)
+    "Cannot calculate RMSE, matrix is empty"
+    (let [values (mapcat identity m)
+          n      (count values)]
+      (Math/sqrt
+       (/ (reduce + (map #(* % %) values))
+          n)))))
 
-(defn als-iteration [R V n test-set lambda]
+(defn initialize-feature-matrix 
+  "Initializes a matrix of size (rows x cols) with values 
+   in range [0, 1)"
+  [rows cols]
+  (if (or (not (pos? rows)) (not (pos? cols)))
+    "Cannot initialize the matrix"
+    (vec (for [_ (range rows)]
+           (vec (for [_ (range cols)]
+                  (rand)))))))
+
+(defn als-iteration 
+  "Performs multiple iterations of Alternating Least Squares algorithm
+   to factorize a given user-item rating matrix `R` into two lower-dimensional
+   matrices: U (user features) and V (item features).
+   
+   Parameters:
+   - R = user-item rating matrix
+   - V = initial item-feature matrix
+   - n = maximum number or iterations to perform
+   - test-set = matrix for RMSE evaluation
+   - lambda = regularization parameter to prevent overfitting
+   
+   In each iteration it fixes V matrix and solves for U using regularized least squares.
+   Then it fixes U and solves for V. 
+   After computer U x V^T, it calculates RMSE on the test set.
+   
+   Returns a map containing:
+   - :U - final user-feature matrix
+   - :V - final item-feature matrix
+   - :rmse - lowest RMSE for all the iterations"
+  [R V n test-set lambda]
   (loop [i 0
          mat-V V
          res-U []
@@ -165,7 +264,7 @@
     (if (>= i n)
       (do
         (println "Max iterations reached")
-        (println "Data: ")
+        (println "Data: ", {:U res-U :V res-V :rmse rmse-val})
         {:U res-U :V res-V :rmse rmse-val})
       (let [temp-U (merge-into-matrix (fix-V-solve-U R mat-V lambda))
             temp-V (merge-into-matrix (fix-U-solve-V R temp-U lambda))
@@ -178,7 +277,9 @@
           (recur (inc i) temp-V res-U res-V rmse-val))))))
 ;; (als-iteration train-set my-V 100 test-set lambda)
 
-(defn als [train-set test-set factors l]
+(defn als 
+  "Returns the U and V matrices corresponding to the lowest RMSE across all iterations."
+  [train-set test-set factors l]
   (apply min-key :rmse
          (for [latent-factor factors
                param l]
@@ -195,18 +296,35 @@
 ;; (def predictions (content-based-filtering))
 ;; predictions
 
-(defn clean-R [mat idxs cols]
+(defn clean-R 
+  "Removes specified rows and columns from a matrix.
+   
+   Parameters:
+   - mat = matrix
+   - idxs = a collection of row indices (0-based) to remove
+   - cols = a collection of column indices (0-based) to remove"
+  [mat idxs cols]
   (let [n-rows (m/row-count mat)
         n-cols (m/column-count mat)
         left-rows (remove (set idxs) (range n-rows))
         left-cols (remove (set cols) (range n-cols))]
     (m/select mat left-rows left-cols)))
 
-(defn mask-ratings [R R-pred]
+(defn mask-ratings 
+  "The function masks out the entries in the predicted matrix R-pred where the 
+   original matrix R has non-zero values (i.e., already known ratings)."
+  [R R-pred]
   (let [mask (m/emap #(if (zero? %) 1 0) R)]
     (m/mul R-pred mask)))
 
-(defn top-rated-movies [n watched-ids]
+(defn top-rated-movies 
+  "Returns top rated movies in case the user doesn't have enough ratings or 
+   it has very low average rating (pessimistic)
+   
+   Parameters:
+   - n = take top n movies
+   - watched-ids = movies the user have already watched, so they are not going to be included"
+  [n watched-ids]
   (let [top-movie-ids (->> @dataset/ratings 
                            (remove #(some #{(:movie-id %)} watched-ids)) 
                            (group-by :movie-id) 
@@ -226,12 +344,17 @@
         total (reduce + c)]
     (float (/ total n))))
 
-(defn normalize [mat]
+(defn normalize 
+  "Normalizes values of ratings to a range [0, 1]"
+  [mat]
   (mapv (fn [row]
           (mapv #(/ % 5.0) row))
         mat))
 
-(defn find-index [idx removed]
+(defn find-index 
+  "Finds the new index of an elements when there are 
+   removed indexes"
+  [idx removed]
   (let [n-rem (count (filter #(< % idx) removed))]
     (- idx n-rem)))
 
@@ -245,20 +368,28 @@
             (vec coll)
             (map-indexed vector sorted-indexes))))
 
-(defn get-movie-recom-info [recs]
+(defn get-movie-recom-info 
+  "Merging movies info from the atom (db) with similarity from 
+   collaborative and content-based filtering"
+  [recs]
   (map (fn [{:keys [movie-id similarity]}]
          (let [movie (some #(when (= (:id %) movie-id) %) @dataset/movies)]
            (merge movie {:similarity (format "%.2f%%" (* similarity 100))})))
        recs))
 
-(defn merge-scores [user-content user-colab alpha-cf alpha-cb]
-  (->> user-content
-       (map (fn [[idx val]]
-              {:movie-id (inc idx)
-               :similarity (+ (* alpha-cb val)
-                              (* alpha-cf (nth user-colab idx 0.0)))}))
-       (sort-by :similarity >)
-       vec))
+(defn merge-scores 
+  "Adding up two matrices using the formula: 
+   alpha-cf * user-colab + alpha-cb * user-content"
+  [user-content user-colab alpha-cf alpha-cb]
+  (if (= 1.0 (+ alpha-cb alpha-cf))
+    (->> user-content
+         (map (fn [[idx val]]
+                {:movie-id (inc idx)
+                 :similarity (+ (* alpha-cb val)
+                                (* alpha-cf (nth user-colab idx 0.0)))}))
+         (sort-by :similarity >)
+         vec)
+    "Alphas must be 1 in total"))
 
 ;; :indexes starts with 0
 ;; :rem-cols starts with 0
@@ -293,7 +424,12 @@
                prep-data
                (:result predictions))))
 
-(defn get-recom-for-user [id min-ratings]
+(defn get-recom-for-user 
+  "Get movies recommendations for a user. 
+   
+   If a user doesn't have enough ratings or has very low average rating, 
+   it will recommend top rated movies"
+  [id min-ratings]
   (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings))
         n-ratings (count watched-ids)
         u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
