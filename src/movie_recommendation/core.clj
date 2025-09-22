@@ -235,7 +235,27 @@
            (vec (for [_ (range cols)]
                   (rand)))))))
 
-(defn als-iteration [R V n test-set lambda]
+(defn als-iteration 
+  "Performs multiple iterations of Alternating Least Squares algorithm
+   to factorize a given user-item rating matrix `R` into two lower-dimensional
+   matrices: U (user features) and V (item features).
+   
+   Parameters:
+   - R = user-item rating matrix
+   - V = initial item-feature matrix
+   - n = maximum number or iterations to perform
+   - test-set = matrix for RMSE evaluation
+   - lambda = regularization parameter to prevent overfitting
+   
+   In each iteration it fixes V matrix and solves for U using regularized least squares.
+   Then it fixes U and solves for V. 
+   After computer U x V^T, it calculates RMSE on the test set.
+   
+   Returns a map containing:
+   - :U - final user-feature matrix
+   - :V - final item-feature matrix
+   - :rmse - lowest RMSE for all the iterations"
+  [R V n test-set lambda]
   (loop [i 0
          mat-V V
          res-U []
@@ -257,7 +277,9 @@
           (recur (inc i) temp-V res-U res-V rmse-val))))))
 ;; (als-iteration train-set my-V 100 test-set lambda)
 
-(defn als [train-set test-set factors l]
+(defn als 
+  "Returns the U and V matrices corresponding to the lowest RMSE across all iterations."
+  [train-set test-set factors l]
   (apply min-key :rmse
          (for [latent-factor factors
                param l]
@@ -274,18 +296,35 @@
 ;; (def predictions (content-based-filtering))
 ;; predictions
 
-(defn clean-R [mat idxs cols]
+(defn clean-R 
+  "Removes specified rows and columns from a matrix.
+   
+   Parameters:
+   - mat = matrix
+   - idxs = a collection of row indices (0-based) to remove
+   - cols = a collection of column indices (0-based) to remove"
+  [mat idxs cols]
   (let [n-rows (m/row-count mat)
         n-cols (m/column-count mat)
         left-rows (remove (set idxs) (range n-rows))
         left-cols (remove (set cols) (range n-cols))]
     (m/select mat left-rows left-cols)))
 
-(defn mask-ratings [R R-pred]
+(defn mask-ratings 
+  "The function masks out the entries in the predicted matrix R-pred where the 
+   original matrix R has non-zero values (i.e., already known ratings)."
+  [R R-pred]
   (let [mask (m/emap #(if (zero? %) 1 0) R)]
     (m/mul R-pred mask)))
 
-(defn top-rated-movies [n watched-ids]
+(defn top-rated-movies 
+  "Returns top rated movies in case the user doesn't have enough ratings or 
+   it has very low average rating (pessimistic)
+   
+   Parameters:
+   - n = take top n movies
+   - watched-ids = movies the user have already watched, so they are not going to be included"
+  [n watched-ids]
   (let [top-movie-ids (->> @dataset/ratings 
                            (remove #(some #{(:movie-id %)} watched-ids)) 
                            (group-by :movie-id) 
@@ -305,12 +344,17 @@
         total (reduce + c)]
     (float (/ total n))))
 
-(defn normalize [mat]
+(defn normalize 
+  "Normalizes values of ratings to a range [0, 1]"
+  [mat]
   (mapv (fn [row]
           (mapv #(/ % 5.0) row))
         mat))
 
-(defn find-index [idx removed]
+(defn find-index 
+  "Finds the new index of an elements when there are 
+   removed indexes"
+  [idx removed]
   (let [n-rem (count (filter #(< % idx) removed))]
     (- idx n-rem)))
 
@@ -324,20 +368,28 @@
             (vec coll)
             (map-indexed vector sorted-indexes))))
 
-(defn get-movie-recom-info [recs]
+(defn get-movie-recom-info 
+  "Merging movies info from the atom (db) with similarity from 
+   collaborative and content-based filtering"
+  [recs]
   (map (fn [{:keys [movie-id similarity]}]
          (let [movie (some #(when (= (:id %) movie-id) %) @dataset/movies)]
            (merge movie {:similarity (format "%.2f%%" (* similarity 100))})))
        recs))
 
-(defn merge-scores [user-content user-colab alpha-cf alpha-cb]
-  (->> user-content
-       (map (fn [[idx val]]
-              {:movie-id (inc idx)
-               :similarity (+ (* alpha-cb val)
-                              (* alpha-cf (nth user-colab idx 0.0)))}))
-       (sort-by :similarity >)
-       vec))
+(defn merge-scores 
+  "Adding up two matrices using the formula: 
+   alpha-cf * user-colab + alpha-cb * user-content"
+  [user-content user-colab alpha-cf alpha-cb]
+  (if (= 1.0 (+ alpha-cb alpha-cf))
+    (->> user-content
+         (map (fn [[idx val]]
+                {:movie-id (inc idx)
+                 :similarity (+ (* alpha-cb val)
+                                (* alpha-cf (nth user-colab idx 0.0)))}))
+         (sort-by :similarity >)
+         vec)
+    "Alphas must be 1 in total"))
 
 ;; :indexes starts with 0
 ;; :rem-cols starts with 0
@@ -372,7 +424,12 @@
                prep-data
                (:result predictions))))
 
-(defn get-recom-for-user [id min-ratings]
+(defn get-recom-for-user 
+  "Get movies recommendations for a user. 
+   
+   If a user doesn't have enough ratings or has very low average rating, 
+   it will recommend top rated movies"
+  [id min-ratings]
   (let [watched-ids (map :movie-id (filter #(= (:user-id %) id) @dataset/ratings))
         n-ratings (count watched-ids)
         u-ratings (map :rating (filter #(= (:user-id %) id) @dataset/ratings))
